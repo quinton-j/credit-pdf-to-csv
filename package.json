@@ -1,0 +1,16 @@
+{
+  "name": "credit-pdf-to-csv",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "json2csv": "^3.11.5",
+    "minimist": "^1.2.0",
+    "pdf-to-text": "git+https://github.com/quinton-j/pdf-to-text.git#layout-options"
+  }
+}
