@@ -9,6 +9,12 @@ const parsedArgs = minimist(process.argv);
 const inFile = parsedArgs['in-file'];
 const inDirectory = parsedArgs['in-directory'];
 const outFile = parsedArgs['out-file'];
+const categoryFile = parsedArgs['category-file'] || './category.json';
+
+let categories = {};
+if(fs.existsSync(categoryFile)) {
+    categories = require(categoryFile);
+}
 
 if (!outFile) {
     console.error('Output file must be specified');
@@ -83,7 +89,8 @@ function fileToRecords(inFile) {
                 reject(error);
             }
         });
-    }).catch(error => {
+    }).then(categorizeRecords)
+    .catch(error => {
         throw new Error(`Error reading file ${inFile}:  ${error}`);
     });
 }
@@ -91,7 +98,7 @@ function fileToRecords(inFile) {
 function recordsToCsvFile(records, outFile) {
     json2csv({
         data: records,
-        fields: ['date', 'item', 'amount']
+        fields: ['date', 'item', 'category', 'amount'],
     }, (error, csvString) => {
         if (error) {
             console.error('Failed to convert records to csv:', error);
@@ -100,4 +107,21 @@ function recordsToCsvFile(records, outFile) {
             console.info(`Successfully wrote output to ${outFile}`);
         }
     });
+}
+
+function categorizeRecords(records) {
+    for(let record of records) {
+        record.category = getCategory(record.item);
+    }
+    return records;
+}
+
+function getCategory(item) {
+    for(let category in categories) {
+        if(categories[category].find(term => item.includes(term))) {
+            return category;
+        }
+    }
+
+    return 'unclassified';
 }
