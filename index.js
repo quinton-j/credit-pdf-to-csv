@@ -32,18 +32,22 @@ function fileToRecords(inFile) {
                 if (error) {
                     reject(error);
                 } else {
-                    const yearMatches = /Statement date +\w{3} +\d{1,2}, +(\d{4})/mg.exec(data);
-                    const year = yearMatches[1];
+                    const yearMatches = /Statement date +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
+                    const statementMonth = yearMatches[1];
+                    const statementYear = parseInt(yearMatches[2]);
                     const records = [];
                     const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)/g;
                     let match;
                     while (match = regex.exec(data)) {
-                        const date = new Date(`${year}-${match[2].replace(' ', '-')}`);
+                        const date = new Date(`${statementYear}-${match[2].replace(' ', '-')}`);
+                        if (statementMonth === 'Jan' && date.getMonth() === 11) {
+                            date.setFullYear(statementYear - 1);
+                        }
                         records.push({
                             recordId: parseInt(match[1]),
                             amount: parseFloat(match[5] + match[4].replace(',', '')),
                             item: match[3],
-                            date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                            date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
                         });
                     }
 
