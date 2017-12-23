@@ -10,7 +10,7 @@
             "name": "Launch Program",
             "program": "${workspaceFolder}\\index.js",
             "args": [
-                "--file", "c:/temp/test.pdf",
+                "--in-file", "c:/temp/files/2011-11-17 - Joint visa.pdf",
                 "--out-file", "c:/temp/test.csv",
             ]
         }
