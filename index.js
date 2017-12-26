@@ -12,7 +12,7 @@ const outFile = parsedArgs['out-file'];
 const categoryFile = parsedArgs['category-file'] || './category.json';
 
 let categories = {};
-if(fs.existsSync(categoryFile)) {
+if (fs.existsSync(categoryFile)) {
     categories = require(categoryFile);
 }
 
@@ -53,7 +53,7 @@ function fileToRecords(inFile) {
                             recordId: parseInt(match[1]),
                             amount: parseFloat(match[5] + match[4].replace(',', '')),
                             item: match[3],
-                            date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+                            date: `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`,
                         });
                     }
 
@@ -90,9 +90,16 @@ function fileToRecords(inFile) {
             }
         });
     }).then(categorizeRecords)
-    .catch(error => {
-        throw new Error(`Error reading file ${inFile}:  ${error}`);
-    });
+        .catch(error => {
+            throw new Error(`Error reading file ${inFile}:  ${error}`);
+        });
+}
+
+function ensureTwoDigits(number) {
+    const numberString = number.toString();
+    return numberString.length < 2 ?
+        '0' + numberString :
+        numberString;
 }
 
 function recordsToCsvFile(records, outFile) {
@@ -110,15 +117,21 @@ function recordsToCsvFile(records, outFile) {
 }
 
 function categorizeRecords(records) {
-    for(let record of records) {
-        record.category = getCategory(record.item);
+    for (let record of records) {
+        record.category = getCategory(record);
     }
     return records;
 }
 
-function getCategory(item) {
-    for(let category in categories) {
-        if(categories[category].find(term => item.includes(term))) {
+function getCategory(record) {
+    for (let forced of categories['forced']) {
+        if (forced.item === record.item && forced.date === record.date) {
+            return forced.category;
+        }
+    }
+
+    for (let category in categories) {
+        if (categories[category].find(term => record.item.includes(term))) {
             return category;
         }
     }
