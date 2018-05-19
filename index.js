@@ -42,7 +42,7 @@ function fileToRecords(inFile) {
                     const statementMonth = yearMatches[1];
                     const statementYear = parseInt(yearMatches[2]);
                     const records = [];
-                    const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)/g;
+                    const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
                     let match;
                     while (match = regex.exec(data)) {
                         const date = new Date(`${statementYear}-${match[2].replace(' ', '-')}`);
