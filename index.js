@@ -19,38 +19,38 @@ if (fs.existsSync(categoryFile)) {
 if (!outFile) {
     console.error('Output file must be specified');
 } else if (inFile) {
-    fileToRecords(inFile)
-        .then(records => recordsToCsvFile(records, outFile))
-        .catch(error => console.error(`Failed converting ${inFile} to records:  ${error}`));
+    fileToTransactions(inFile)
+        .then(transactions => transactionsToCsvFile(transactions, outFile))
+        .catch(error => console.error(`Failed converting ${inFile} to transactions:  ${error}`));
 } else if (inDirectory) {
-    Promise.all(fs.readdirSync(inDirectory).map(file => fileToRecords(path.join(inDirectory, file))))
-        .then(recordNestedArray => [].concat.apply([], recordNestedArray))
-        .then(records => recordsToCsvFile(records, outFile))
-        .catch(error => console.error(`Failed converting ${inDirectory} to records:  ${error}`));
+    Promise.all(fs.readdirSync(inDirectory).map(file => fileToTransactions(path.join(inDirectory, file))))
+        .then(transactionNestedArray => [].concat.apply([], transactionNestedArray))
+        .then(transactions => transactionsToCsvFile(transactions, outFile))
+        .catch(error => console.error(`Failed converting ${inDirectory} to transactions:  ${error}`));
 } else {
     console.info('in-file or in-directory must be specified');
 }
 
-function fileToRecords(inFile) {
+function fileToTransactions(inFile) {
     return new Promise((resolve, reject) => {
         pdftUtil.pdfToText(inFile, { format: 'table' }, (error, data) => {
             try {
                 if (error) {
                     reject(error);
                 } else {
-                    const { records, validationErrors } = parseRecord(data);
+                    const { transactions, validationErrors } = parseTransactions(data);
 
                     if (validationErrors.length > 0) {
                         reject(validationErrors.join(os.EOL));
                     } else {
-                        resolve(records);
+                        resolve(transactions);
                     }
                 }
             } catch (error) {
                 reject(error);
             }
         });
-    }).then(categorizeRecords)
+    }).then(categorizeTransactions)
         .catch(error => {
             throw new Error(`Error reading file ${inFile}:  ${error}`);
         });
@@ -63,32 +63,32 @@ function ensureTwoDigits(number) {
         numberString;
 }
 
-function recordsToCsvFile(records, outFile) {
+function transactionsToCsvFile(transactions, outFile) {
     try {
-        const csvString = json2csv(records, { fields: ['date', 'item', 'category', 'amount'] });
+        const csvString = json2csv(transactions, { fields: ['date', 'item', 'category', 'amount'] });
         fs.writeFileSync(outFile, csvString);
         console.info(`Successfully wrote output to ${outFile}`);
     } catch (error) {
-        console.error('Failed to convert records to csv:', error);
+        console.error('Failed to convert transactions to csv:', error);
     }
 }
 
-function categorizeRecords(records) {
-    for (let record of records) {
-        record.category = getCategory(record);
+function categorizeTransactions(transactions) {
+    for (let transaction of transactions) {
+        transaction.category = getCategory(transaction);
     }
-    return records;
+    return transactions;
 }
 
-function getCategory(record) {
+function getCategory(transaction) {
     for (let forced of categories['forced']) {
-        if (forced.item === record.item && forced.date === record.date) {
+        if (forced.item === transaction.item && forced.date === transaction.date) {
             return forced.category;
         }
     }
 
     for (let category in categories) {
-        if (categories[category].find(term => record.item.includes(term))) {
+        if (categories[category].find(term => transaction.item.includes(term))) {
             return category;
         }
     }
@@ -96,19 +96,21 @@ function getCategory(record) {
     return 'unclassified';
 }
 
-function parseRecord(data) {
-    if(/Scotia.*VISA.*[cC]ard/mg.test(data)) {
-        return parseScotiabankRecord(data);
+function parseTransactions(data) {
+    if (/Scotia.*VISA.*[cC]ard/mg.test(data)) {
+        return parseScotiabankTransactions(data);
+    } else if (/CIBC.*Visa/mg.test(data)) {
+        return parseCibcTransactions(data);
     } else {
         throw new Error('Unrecognized credit file');
     }
 }
 
-function parseScotiabankRecord(data) {
+function parseScotiabankTransactions(data) {
     const yearMatches = /Statement date +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
-    const records = [];
+    const transactions = [];
     const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
     let match;
     while (match = regex.exec(data)) {
@@ -116,8 +118,8 @@ function parseScotiabankRecord(data) {
         if (statementMonth === 'Jan' && date.getMonth() === 11) {
             date.setFullYear(statementYear - 1);
         }
-        records.push({
-            recordId: parseInt(match[1]),
+        transactions.push({
+            transactionId: parseInt(match[1]),
             amount: parseFloat(match[5] + match[4].replace(',', '')),
             item: match[3],
             date: `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`,
@@ -125,9 +127,9 @@ function parseScotiabankRecord(data) {
     }
 
     const validationErrors = [];
-    for (let i = 1; i < records.length; ++i) {
-        if (records[i - 1].recordId + 1 !== records[i].recordId) {
-            validationErrors.push(`Records ${i - 1} and ${i} are not contiguous`);
+    for (let i = 1; i < transactions.length; ++i) {
+        if (transactions[i - 1].transactionId + 1 !== transactions[i].transactionId) {
+            validationErrors.push(`Transactions ${i - 1} and ${i} are not contiguous`);
         }
     }
 
@@ -137,13 +139,22 @@ function parseScotiabankRecord(data) {
     const purchases = parseFloat(purchasesMatches[1].replace(',', ''));
     let checksum = purchases - payments;
 
-    for (let record of records) {
-        checksum -= record.amount;
+    for (let transaction of transactions) {
+        checksum -= transaction.amount;
     }
 
     if (Math.abs(checksum) > 0.01) {
         validationErrors.push(`Checksum failure:  ${checksum}`);
     }
 
-    return { records, validationErrors };
+    return { transactions, validationErrors };
+}
+
+function parseCibcTransactions(data) {
+    const transactions = [];
+    const validationErrors = [];
+
+    console.info('This is a CIBC visa file');
+
+    return { transactions, validationErrors };
 }
