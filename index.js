@@ -5,7 +5,13 @@ const json2csv = require('json2csv').parse;
 const os = require('os');
 const path = require('path');
 
-const parsedArgs = minimist(process.argv);
+const parsedArgs = minimist(process.argv, {
+    alias: {
+        o: 'out-file',
+        f: 'in-file',
+        d: 'in-directory'
+    }
+});
 const inFile = parsedArgs['in-file'];
 const inDirectory = parsedArgs['in-directory'];
 const outFile = parsedArgs['out-file'];
