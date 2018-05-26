@@ -56,13 +56,6 @@ function fileToTransactions(inFile) {
         });
 }
 
-function ensureTwoDigits(number) {
-    const numberString = number.toString();
-    return numberString.length < 2 ?
-        '0' + numberString :
-        numberString;
-}
-
 function transactionsToCsvFile(transactions, outFile) {
     try {
         const csvString = json2csv(transactions, { fields: ['date', 'item', 'category', 'amount'] });
@@ -107,26 +100,24 @@ function parseTransactions(data) {
 }
 
 function parseScotiabankTransactions(data) {
+    const transactions = [];
+    const validationErrors = [];
+
     const yearMatches = /Statement date +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
-    const transactions = [];
+
     const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
     let match;
     while (match = regex.exec(data)) {
-        const date = new Date(`${statementYear}-${match[2].replace(' ', '-')}`);
-        if (statementMonth === 'Jan' && date.getMonth() === 11) {
-            date.setFullYear(statementYear - 1);
-        }
         transactions.push({
             transactionId: parseInt(match[1]),
             amount: parseFloat(match[5] + match[4].replace(',', '')),
             item: match[3],
-            date: `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`,
+            date: getDateString(statementYear, statementMonth, match[2]),
         });
     }
 
-    const validationErrors = [];
     for (let i = 1; i < transactions.length; ++i) {
         if (transactions[i - 1].transactionId + 1 !== transactions[i].transactionId) {
             validationErrors.push(`Transactions ${i - 1} and ${i} are not contiguous`);
@@ -150,11 +141,54 @@ function parseScotiabankTransactions(data) {
     return { transactions, validationErrors };
 }
 
+function getDateString(statementYear, statementMonth, transactionDate) {
+    const date = new Date(`${statementYear}-${transactionDate.replace(' ', '-')}`);
+    if (statementMonth === 'Jan' && date.getMonth() === 11) {
+        date.setFullYear(statementYear - 1);
+    }
+    return `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`;
+}
+
+function ensureTwoDigits(number) {
+    const numberString = number.toString();
+    return numberString.length < 2 ? '0' + numberString : numberString;
+}
+
 function parseCibcTransactions(data) {
     const transactions = [];
     const validationErrors = [];
 
-    console.info('This is a CIBC visa file');
+    const yearMatches = /Transactions from \w+ \d{1,2}(?:, \d{4})? +to +(\w+) +\d{1,2}, +(\d{4})/mg.exec(data);
+    const statementMonth = yearMatches[1];
+    const statementYear = parseInt(yearMatches[2]);
+
+    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?\d+\.\d{2}[^%\*])/g;
+    let match;
+    while (match = regex.exec(data)) {
+        const description = match[2].trim();
+        if (!(/PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description))) {
+            transactions.push({
+                amount: parseFloat(match[3].replace(',', '')),
+                item: description,
+                date: getDateString(statementYear, statementMonth, match[1]),
+            });
+        }
+    }
+
+    const totalMatches = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg.exec(data);
+    let checksum = parseFloat(totalMatches[1].replace(',', ''));
+    const interestMatches = /Total interest this period +\$(\d+\.\d{2})/mg.exec(data);
+    if (interestMatches) {
+        checksum += parseFloat(interestMatches[1].replace(',', ''));
+    }
+
+    for (let transaction of transactions) {
+        checksum -= transaction.amount;
+    }
+
+    if (Math.abs(checksum) > 0.01) {
+        validationErrors.push(`Checksum failure:  ${checksum}`);
+    }
 
     return { transactions, validationErrors };
 }
