@@ -2,7 +2,7 @@
 
 ## Description
 
-Parses, categorizes, and converts to transactions from a VISA pdf to a CSV file.  User must create a `category.json` file in the running directory to categorize the transactions.
+Parses, categorizes, and converts to transactions from a credit card statement txt or pdf file to a CSV file.  User must create a `category.json` file in the running directory to categorize the transactions.
 
 ## Categories
 
@@ -36,3 +36,5 @@ The script can run against an individual file:
 Or against a directory:
 
 ``node index.js --in-directory ./myVisaFiles/ --out-file myVisaRecords.csv``
+
+If ".ignore." is in the file name, it will be skipped. This is useful when you need to manually tweak the pdftotext output, storing the result in a txt file, but wish to keep the original pdf with the other statements.

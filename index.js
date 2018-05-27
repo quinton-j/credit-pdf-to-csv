@@ -39,7 +39,7 @@ if (!outFile) {
 
 function fileToTransactions(inFile) {
     return new Promise((resolve, reject) => {
-        pdftUtil.pdfToText(inFile, { format: 'table' }, (error, data) => {
+        function parseCallback(error, data) {
             try {
                 if (error) {
                     reject(error);
@@ -55,7 +55,17 @@ function fileToTransactions(inFile) {
             } catch (error) {
                 reject(error);
             }
-        });
+        }
+
+        if (/\.ignore\./mg.test(inFile)) {
+            resolve([]);
+        } else if (/\.txt$/mg.test(inFile)) {
+            fs.readFile(inFile, 'utf8', parseCallback);
+        } else if (/\.pdf$/mg.test(inFile)) {
+            pdftUtil.pdfToText(inFile, { format: 'table' }, parseCallback);
+        } else {
+            reject("unknown file type");
+        }
     }).then(categorizeTransactions)
         .catch(error => {
             throw new Error(`Error reading file ${inFile}:  ${error}`);
@@ -100,6 +110,8 @@ function parseTransactions(data) {
         return parseScotiabankTransactions(data);
     } else if (/CIBC.*Visa/mg.test(data)) {
         return parseCibcTransactions(data);
+    } else if (/President's\sChoice\sFinancial.*Mastercard/mg.test(data)) {
+        return parsePcTransactions(data);
     } else {
         throw new Error('Unrecognized credit file');
     }
@@ -149,7 +161,7 @@ function parseScotiabankTransactions(data) {
 
 function getDateString(statementYear, statementMonth, transactionDate) {
     const date = new Date(`${statementYear}-${transactionDate.replace(' ', '-')}`);
-    if (statementMonth === 'Jan' && date.getMonth() === 11) {
+    if (statementMonth.startsWith('Jan') && date.getMonth() === 11) {
         date.setFullYear(statementYear - 1);
     }
     return `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`;
@@ -168,7 +180,7 @@ function parseCibcTransactions(data) {
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?\d+\.\d{2}[^%\*])/g;
+    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
     let match;
     while (match = regex.exec(data)) {
         const description = match[2].trim();
@@ -187,6 +199,56 @@ function parseCibcTransactions(data) {
     if (interestMatches) {
         checksum += parseFloat(interestMatches[1].replace(',', ''));
     }
+
+    for (let transaction of transactions) {
+        checksum -= transaction.amount;
+    }
+
+    if (Math.abs(checksum) > 0.01) {
+        validationErrors.push(`Checksum failure:  ${checksum}`);
+    }
+
+    return { transactions, validationErrors };
+}
+
+function parsePcTransactions(data) {
+    const transactions = [];
+    const validationErrors = [];
+
+    const yearMatches = /statement date: +(\w{3})\.? \d{1,2}, +(\d{4})/mg.exec(data);
+    const statementMonth = yearMatches[1];
+    const statementYear = parseInt(yearMatches[2]);
+
+    const regex = /(\d{2})\/(\d{2}) +\d{2}\/\d{2} +(.+?)(-?[\d,]+\.\d{2})/g;
+    let match;
+    while (match = regex.exec(data)) {
+        const description = match[3].trim();
+        if (!(/PAYMENT \/ PAIEMENT/.exec(description))) {
+            //console.log(match[0]);
+            transactions.push({
+                amount: parseFloat(match[4].replace(',', '')),
+                item: description,
+                date: getDateString(statementYear, statementMonth, match[2] + '-' + match[1]),
+            });
+        }
+    }
+
+    const previousBalanceMatches = /Previous +Balance +\$(\d*,?\d+\.\d{2})/mg.exec(data);
+    const previousBalance = parseFloat(previousBalanceMatches[1].replace(',', ''));
+
+    let payments;
+    const paymentsMatches = /total +paymentactivity +-?\$(\d*,?\d+\.\d{2})/mg.exec(data);
+    if (paymentsMatches) {
+        payments = parseFloat(paymentsMatches[1].replace(',', ''));
+    } else {
+        const paymentsMatches2 = /- payments [^ ]+ Thank you +\$(\d*,?\d+\.\d{2})/mg.exec(data);
+        payments = parseFloat(paymentsMatches2[1].replace(',', ''));
+    }
+
+    const statementBalanceMatches = /Statement +Balance +\$(\d*,?\d+\.\d{2})/mg.exec(data);
+    const statementBalance = parseFloat(statementBalanceMatches[1].replace(',', ''));
+
+    let checksum = statementBalance + payments - previousBalance;
 
     for (let transaction of transactions) {
         checksum -= transaction.amount;
