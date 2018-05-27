@@ -168,7 +168,7 @@ function parseCibcTransactions(data) {
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?\d+\.\d{2}[^%\*])/g;
+    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
     let match;
     while (match = regex.exec(data)) {
         const description = match[2].trim();
