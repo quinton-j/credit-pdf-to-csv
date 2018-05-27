@@ -161,7 +161,7 @@ function parseScotiabankTransactions(data) {
 
 function getDateString(statementYear, statementMonth, transactionDate) {
     const date = new Date(`${statementYear}-${transactionDate.replace(' ', '-')}`);
-    if (statementMonth === 'Jan' && date.getMonth() === 11) {
+    if (statementMonth.startsWith('Jan') && date.getMonth() === 11) {
         date.setFullYear(statementYear - 1);
     }
     return `${date.getFullYear()}-${ensureTwoDigits(date.getMonth() + 1)}-${ensureTwoDigits(date.getDate())}`;
