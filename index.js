@@ -224,7 +224,6 @@ function parsePcTransactions(data) {
     while (match = regex.exec(data)) {
         const description = match[3].trim();
         if (!(/PAYMENT \/ PAIEMENT/.exec(description))) {
-            //console.log(match[0]);
             transactions.push({
                 amount: parseFloat(match[4].replace(',', '')),
                 item: description,
