@@ -9,8 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "json2csv": "^4.5.1",
-    "minimist": "^1.2.0",
+    "json2csv": "^5.0.0",
+    "minimist": "^1.2.5",
     "pdf-to-text": "git+https://github.com/quinton-j/pdf-to-text.git#layout-options"
   }
 }
