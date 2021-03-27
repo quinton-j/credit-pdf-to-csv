@@ -194,7 +194,7 @@ function parseCibcTransactions(data) {
     }
 
     const totalMatches = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg.exec(data);
-    let checksum = parseFloat(totalMatches[1].replace(',', ''));
+    let checksum = !totalMatches ? 0 : parseFloat(totalMatches[1].replace(',', ''));
     const interestMatches = /Total interest this period +\$(\d+\.\d{2})/mg.exec(data);
     if (interestMatches) {
         checksum += parseFloat(interestMatches[1].replace(',', ''));
