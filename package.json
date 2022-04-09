@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "json2csv": "^5.0.0",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.6",
     "pdf-to-text": "git+https://github.com/quinton-j/pdf-to-text.git#layout-options"
   }
 }
