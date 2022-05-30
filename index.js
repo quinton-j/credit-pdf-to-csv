@@ -180,7 +180,7 @@ function parseCibcTransactions(data) {
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /(\w+ \d{2}) +\w+ \d{2} +(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
+    const regex = /(\w+ \d{2}) +\w+ \d{2}[ Ý]+(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
     let match;
     while (match = regex.exec(data)) {
         const description = match[2].trim();
@@ -193,8 +193,11 @@ function parseCibcTransactions(data) {
         }
     }
 
-    const totalMatches = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg.exec(data);
-    let checksum = !totalMatches ? 0 : parseFloat(totalMatches[1].replace(',', ''));
+    const totalRegex = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg;
+    let checksum = 0;
+    while (match = totalRegex.exec(data)) {
+         checksum = parseFloat(match[1].replace(',', ''));
+    }
     const interestMatches = /Total interest this period +\$(\d+\.\d{2})/mg.exec(data);
     if (interestMatches) {
         checksum += parseFloat(interestMatches[1].replace(',', ''));
