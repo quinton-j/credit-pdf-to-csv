@@ -49,6 +49,7 @@ function fileToTransactions(inFile) {
                     if (validationErrors.length > 0) {
                         reject(validationErrors.join(os.EOL));
                     } else {
+                        transactions.sort((a, b) => a.date.localeCompare(b.date));
                         resolve(transactions);
                     }
                 }
@@ -184,7 +185,8 @@ function parseCibcTransactions(data) {
     let match;
     while (match = regex.exec(data)) {
         const description = match[2].trim();
-        if (!(/PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description))) {
+        if (!(/PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description) ||
+            /SCOTIABANK PAYMENT/.exec(description))) {
             transactions.push({
                 amount: parseFloat(match[3].replace(',', '')),
                 item: description,
@@ -196,7 +198,7 @@ function parseCibcTransactions(data) {
     const totalRegex = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg;
     let checksum = 0;
     while (match = totalRegex.exec(data)) {
-         checksum = parseFloat(match[1].replace(',', ''));
+         checksum += parseFloat(match[1].replace(',', ''));
     }
     const interestMatches = /Total interest this period +\$(\d+\.\d{2})/mg.exec(data);
     if (interestMatches) {
