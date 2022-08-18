@@ -195,7 +195,7 @@ function parseCibcTransactions(data) {
         }
     }
 
-    const totalRegex = /Total for +(?:\d{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg;
+    const totalRegex = /Total for +(?:[\dX]{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg;
     let checksum = 0;
     while (match = totalRegex.exec(data)) {
          checksum += parseFloat(match[1].replace(',', ''));
