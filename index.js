@@ -185,24 +185,24 @@ function parseCibcTransactions(data) {
     let match;
     while (match = regex.exec(data)) {
         const description = match[2].trim();
-        if (!(/PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description) ||
-            /SCOTIABANK PAYMENT/.exec(description))) {
-            transactions.push({
-                amount: parseFloat(match[3].replace(',', '')),
-                item: description,
-                date: getDateString(statementYear, statementMonth, match[1]),
-            });
-        }
+        const isPayment =
+            /PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description) ||
+            /SCOTIABANK PAYMENT/.exec(description);
+        transactions.push({
+            amount: parseFloat(match[3].replace(',', '')) * (isPayment ? -1 : 1),
+            item: description,
+            date: getDateString(statementYear, statementMonth, match[1]),
+        });
     }
 
-    const totalRegex = /Total for +(?:[\dX]{4} +){4}.+\$(\d*,?\d+\.\d{2})/mg;
+    const totalCredits = /Total credits\s+-\s+\$(\d*,?\d+\.\d{2})/mg;
     let checksum = 0;
-    while (match = totalRegex.exec(data)) {
-         checksum += parseFloat(match[1].replace(',', ''));
+    while (match = totalCredits.exec(data)) {
+        checksum -= parseFloat(match[1].replace(',', ''));
     }
-    const interestMatches = /Total interest this period +\$(\d+\.\d{2})/mg.exec(data);
-    if (interestMatches) {
-        checksum += parseFloat(interestMatches[1].replace(',', ''));
+    const totalCharges = /Total charges\s+\+\s+\$(\d*,?\d+\.\d{2})/mg;
+    while (match = totalCharges.exec(data)) {
+        checksum += parseFloat(match[1].replace(',', ''));
     }
 
     for (let transaction of transactions) {
