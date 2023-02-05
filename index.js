@@ -1,96 +1,103 @@
-const minimist = require('minimist');
-const pdftUtil = require('pdf-to-text');
-const fs = require('fs');
-const json2csv = require('json2csv').parse;
-const os = require('os');
-const path = require('path');
+import { existsSync } from 'fs';
+import { readdir, readFile, writeFile } from 'fs/promises';
+import { promisify } from 'util';
+import { EOL } from 'os';
+import { join } from 'path';
 
-const parsedArgs = minimist(process.argv, {
-    alias: {
-        o: 'out-file',
-        f: 'in-file',
-        d: 'in-directory'
+import minimist from 'minimist';
+import pdftUtil from 'pdf-to-text';
+import { Parser } from '@json2csv/plainjs';
+
+(async function main() {
+    const parsedArgs = minimist(process.argv, {
+        alias: {
+            o: 'out-file',
+            f: 'in-file',
+            d: 'in-directory'
+        }
+    });
+    const inFile = parsedArgs['in-file'];
+    const inDirectory = parsedArgs['in-directory'];
+    const outFile = parsedArgs['out-file'];
+    const categoryFile = parsedArgs['category-file'] || './category.json';
+
+    let categories = {};
+    if (existsSync(categoryFile)) {
+        categories = JSON.parse(await readFile(categoryFile));
     }
-});
-const inFile = parsedArgs['in-file'];
-const inDirectory = parsedArgs['in-directory'];
-const outFile = parsedArgs['out-file'];
-const categoryFile = parsedArgs['category-file'] || './category.json';
 
-let categories = {};
-if (fs.existsSync(categoryFile)) {
-    categories = require(categoryFile);
-}
+    let files = [];
 
-if (!outFile) {
-    console.error('Output file must be specified');
-} else if (inFile) {
-    fileToTransactions(inFile)
-        .then(transactions => transactionsToCsvFile(transactions, outFile))
-        .catch(error => console.error(`Failed converting ${inFile} to transactions:  ${error}`));
-} else if (inDirectory) {
-    Promise.all(fs.readdirSync(inDirectory).map(file => fileToTransactions(path.join(inDirectory, file))))
-        .then(transactionNestedArray => [].concat.apply([], transactionNestedArray))
-        .then(transactions => transactionsToCsvFile(transactions, outFile))
-        .catch(error => console.error(`Failed converting ${inDirectory} to transactions:  ${error}`));
-} else {
-    console.info('in-file or in-directory must be specified');
-}
+    if (!outFile) {
+        throw new Error('Output file must be specified');
+    } else if (inFile) {
+        files.push(inFile);
+    } else if (inDirectory) {
+        files = files.concat((await readdir(inDirectory)).map(file => join(inDirectory, file)));
+    } else {
+        throw new Error('in-file or in-directory must be specified');
+    }
 
-function fileToTransactions(inFile) {
-    return new Promise((resolve, reject) => {
-        function parseCallback(error, data) {
-            try {
-                if (error) {
-                    reject(error);
-                } else {
-                    const { transactions, validationErrors } = parseTransactions(data);
-
-                    if (validationErrors.length > 0) {
-                        reject(validationErrors.join(os.EOL));
-                    } else {
-                        transactions.sort((a, b) => a.date.localeCompare(b.date));
-                        resolve(transactions);
-                    }
-                }
-            } catch (error) {
-                reject(error);
-            }
-        }
-
-        if (/\.ignore\./mg.test(inFile)) {
-            resolve([]);
-        } else if (/\.txt$/mg.test(inFile)) {
-            fs.readFile(inFile, 'utf8', parseCallback);
-        } else if (/\.pdf$/mg.test(inFile)) {
-            pdftUtil.pdfToText(inFile, { format: 'table' }, parseCallback);
-        } else {
-            reject("unknown file type");
-        }
-    }).then(categorizeTransactions)
-        .catch(error => {
-            throw new Error(`Error reading file ${inFile}:  ${error}`);
-        });
-}
-
-function transactionsToCsvFile(transactions, outFile) {
     try {
-        const csvString = json2csv(transactions, { fields: ['date', 'item', 'category', 'amount'] });
-        fs.writeFileSync(outFile, csvString);
+        await writeTransactionsToCsvFile(
+            (await Promise.all(files.map(file => fileToTransactions(categories, file))))
+                .flat(),
+            outFile);
         console.info(`Successfully wrote output to ${outFile}`);
     } catch (error) {
-        console.error('Failed to convert transactions to csv:', error);
+        throw new Error(`Failed converting ${inFile} to transactions:  ${error}`);
+    }
+})();
+
+async function fileToTransactions(categories, inFile) {
+    try {
+        if (/\.ignore\./mg.test(inFile)) {
+            return [];
+        } else {
+
+            let data;
+            if (/\.txt$/mg.test(inFile)) {
+                data = await readFile(inFile);
+            } else if (/\.pdf$/mg.test(inFile)) {
+                data = await (promisify(pdftUtil.pdfToText))(inFile, { format: 'table' });
+            } else {
+                throw new Error(`unknown file type`);
+            }
+
+            const { transactions, validationErrors } = parseTransactions(data);
+
+            if (validationErrors.length > 0) {
+                throw new Error(validationErrors.join(EOL));
+            } else {
+                transactions.sort((a, b) => a.date.localeCompare(b.date));
+                return categorizeTransactions(categories, transactions);
+            }
+        }
+    } catch (error) {
+        throw new Error(`Error transactionifying file ${inFile}:  ${error}`);
     }
 }
 
-function categorizeTransactions(transactions) {
+async function writeTransactionsToCsvFile(transactions, outFile) {
+    try {
+        const csvString = new Parser({
+            fields: ['date', 'item', 'category', 'amount']
+        }).parse(transactions);
+
+        return writeFile(outFile, csvString);
+    } catch (error) {
+        throw new Error('Failed to convert transactions to csv:', error);
+    }
+}
+
+function categorizeTransactions(categories, transactions) {
     for (let transaction of transactions) {
-        transaction.category = getCategory(transaction);
+        transaction.category = getCategory(categories, transaction);
     }
     return transactions;
 }
 
-function getCategory(transaction) {
+function getCategory(categories, transaction) {
     for (let forced of categories['forced']) {
         if (forced.item === transaction.item && forced.date === transaction.date) {
             return forced.category;

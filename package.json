@@ -3,13 +3,14 @@
   "version": "0.0.1",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "json2csv": "^5.0.7",
+    "@json2csv/plainjs": "^6.1.2",
     "minimist": "^1.2.6",
     "pdf-to-text": "git+https://github.com/quinton-j/pdf-to-text.git#layout-options"
   }
