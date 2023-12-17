@@ -185,39 +185,44 @@ function parseCibcTransactions(data) {
     const validationErrors = [];
 
     const yearMatches = /Transactions from \w+ \d{1,2}(?:, \d{4})? +to +(\w+) +\d{1,2}, +(\d{4})/mg.exec(data);
-    const statementMonth = yearMatches[1];
-    const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /(\w+ \d{2}) +\w+ {1,3}\d{2}[ Ý]+(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
-    let match;
-    while (match = regex.exec(data)) {
-        const description = match[2].trim();
-        const isPayment =
-            /PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description) ||
-            /SCOTIABANK PAYMENT/.exec(description);
-        transactions.push({
-            amount: parseFloat(match[3].replace(',', '')) * (isPayment ? -1 : 1),
-            item: description,
-            date: getDateString(statementYear, statementMonth, match[1]),
-        });
-    }
+    if (!yearMatches) {
+        console.warn('No transactions found.');
+    } else {
+        const statementMonth = yearMatches[1];
+        const statementYear = parseInt(yearMatches[2]);
 
-    const totalCredits = /Total credits\s+-\s+\$(\d*,?\d+\.\d{2})/mg;
-    let checksum = 0;
-    while (match = totalCredits.exec(data)) {
-        checksum -= parseFloat(match[1].replace(',', ''));
-    }
-    const totalCharges = /Total charges\s+\+\s+\$(\d*,?\d+\.\d{2})/mg;
-    while (match = totalCharges.exec(data)) {
-        checksum += parseFloat(match[1].replace(',', ''));
-    }
+        const regex = /(\w+ \d{2}) +\w+ {1,3}\d{2}[ Ý]+(.+?)(-?[\d,]+\.\d{2}[^%\*])/g;
+        let match;
+        while (match = regex.exec(data)) {
+            const description = match[2].trim();
+            const isPayment =
+                /PAYMENT THANK YOU\/PAIEMENT +MERCI/.exec(description) ||
+                /SCOTIABANK PAYMENT/.exec(description);
+            transactions.push({
+                amount: parseFloat(match[3].replace(',', '')) * (isPayment ? -1 : 1),
+                item: description,
+                date: getDateString(statementYear, statementMonth, match[1]),
+            });
+        }
 
-    for (let transaction of transactions) {
-        checksum -= transaction.amount;
-    }
+        const totalCredits = /Total credits\s+-\s+\$(\d*,?\d+\.\d{2})/mg;
+        let checksum = 0;
+        while (match = totalCredits.exec(data)) {
+            checksum -= parseFloat(match[1].replace(',', ''));
+        }
+        const totalCharges = /Total charges\s+\+\s+\$(\d*,?\d+\.\d{2})/mg;
+        while (match = totalCharges.exec(data)) {
+            checksum += parseFloat(match[1].replace(',', ''));
+        }
 
-    if (Math.abs(checksum) > 0.01) {
-        validationErrors.push(`Checksum failure:  ${checksum}`);
+        for (let transaction of transactions) {
+            checksum -= transaction.amount;
+        }
+
+        if (Math.abs(checksum) > 0.01) {
+            validationErrors.push(`Checksum failure:  ${checksum}`);
+        }
     }
 
     return { transactions, validationErrors };
