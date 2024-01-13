@@ -184,7 +184,7 @@ function parseCibcTransactions(data) {
     const transactions = [];
     const validationErrors = [];
 
-    const yearMatches = /Transactions from \w+ \d{1,2}(?:, \d{4})? +to +(\w+) +\d{1,2}, +(\d{4})/mg.exec(data);
+    const yearMatches = /Transactions from \w+ +\d{1,2}(?:, +\d{4})? +to +(\w+) +\d{1,2}, +(\d{4})/mg.exec(data);
 
     if (!yearMatches) {
         console.warn('No transactions found.');
