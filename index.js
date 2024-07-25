@@ -126,15 +126,14 @@ function parseTransactions(data) {
 }
 
 function parseScotiabankTransactions(data) {
-    const transactions = [];
-    const validationErrors = [];
-
     const yearMatches = /Statement date +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /(\d{3}) +(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
+    const regex = /\s+(\d{3}) {2}[\s\w\\]*?(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
     let match;
+
+    const transactions = [];
     while (match = regex.exec(data)) {
         transactions.push({
             transactionId: parseInt(match[1]),
@@ -144,9 +143,13 @@ function parseScotiabankTransactions(data) {
         });
     }
 
+    const validationErrors = [];
     for (let i = 1; i < transactions.length; ++i) {
-        if (transactions[i - 1].transactionId + 1 !== transactions[i].transactionId) {
-            validationErrors.push(`Transactions ${i - 1} and ${i} are not contiguous`);
+        const previousId = transactions[i - 1].transactionId;
+        const currentId = transactions[i].transactionId;
+
+        if (previousId + 1 !== currentId) {
+            validationErrors.push(`Transactions ${previousId} and ${currentId} are not contiguous`);
         }
     }
 
