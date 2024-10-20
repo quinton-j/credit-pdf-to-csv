@@ -130,7 +130,7 @@ function parseScotiabankTransactions(data) {
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
-    const regex = /\s+(\d{3}) {2}[\s\w\\]*?(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
+    const regex = /\s{2,}(\d{3}) {2}[\s\w\\]*?(\w{3} +\d{1,2}) +(?:\w{3} +\d{1,2} +)?(.+?)(?:AMT +(?:[\d,]+?\.\d{2}-?)? (?:[\w ]*?)?)? +([\d,]+?\.\d{2})(-?)(?:[^%])/g;
     let match;
 
     const transactions = [];
