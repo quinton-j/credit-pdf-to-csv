@@ -126,7 +126,7 @@ function parseTransactions(data) {
 }
 
 function parseScotiabankTransactions(data) {
-    const yearMatches = /Statement date +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
+    const yearMatches = /Statement +[Dd]ate +(\w{3}) +\d{1,2}, +(\d{4})/mg.exec(data);
     const statementMonth = yearMatches[1];
     const statementYear = parseInt(yearMatches[2]);
 
