@@ -114,7 +114,7 @@ function getCategory(categories, transaction) {
 }
 
 function parseTransactions(data) {
-    if (/Scotia.*VISA.*[cC]ard/mg.test(data)) {
+    if (/Scotia.*V(isa|ISA).*[cC]ard/mg.test(data)) {
         return parseScotiabankTransactions(data);
     } else if (/CIBC.*Visa/mg.test(data)) {
         return parseCibcTransactions(data);
